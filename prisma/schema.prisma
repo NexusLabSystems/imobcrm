@@ -1,0 +1,530 @@
+// ============================================================================
+// ImobCRM — schema.prisma (MVP)  ·  Stack: Supabase + Next.js + Prisma
+// ----------------------------------------------------------------------------
+// Escopo desta versão: entidades necessárias para os Sprints 1–6 do MVP.
+// Auth: gerenciado pelo Supabase Auth — a tabela `users` é um PERFIL ligado a
+//       auth.users (sem senha aqui). Crie a linha de perfil via trigger no
+//       signup (ver BLUEPRINT, seção "Auth").
+// Multitenancy: tenant_id em tudo; RLS (isolamento real) entra na Fase 2.
+//       No MVP roda com 1 tenant fixo.
+// Convenção: snake_case no banco (@map / @@map), camelCase no client Prisma.
+// Soft delete via deletedAt. Auditoria via created/updated.
+// DATABASE_URL deve apontar para o pooler do Supabase (porta 6543, pgbouncer).
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ----------------------------------------------------------------------------
+// ENUMS
+// ----------------------------------------------------------------------------
+
+enum Role {
+  admin
+  manager
+  coordinator
+  broker
+  partner
+}
+
+enum LeadSource {
+  website
+  facebook
+  instagram
+  indicacao
+  portais
+  manual
+  importacao
+}
+
+enum LeadStatus {
+  new
+  in_progress
+  qualified
+  converted
+  lost
+  discarded
+}
+
+enum EnterpriseType {
+  vertical
+  horizontal
+  loteamento
+  comercial
+  misto
+}
+
+enum EnterpriseStatus {
+  pre_launch
+  launch
+  selling
+  sold_out
+  delivered
+}
+
+enum BlockType {
+  tower
+  block
+  sector
+  phase
+}
+
+enum UnitStatus {
+  available
+  reserved
+  sold
+  unavailable
+}
+
+enum ProposalStatus {
+  draft
+  pending_approval
+  approved
+  rejected
+  expired
+  converted
+}
+
+enum ReservationStatus {
+  active
+  expired
+  cancelled
+  converted
+}
+
+enum ActivityType {
+  call
+  email
+  visit
+  meeting
+  whatsapp
+  note
+  system
+}
+
+enum NotificationChannel {
+  push
+  email
+  in_app
+}
+
+enum AuditAction {
+  create
+  update
+  delete
+  login
+  logout
+  approve
+  reject
+}
+
+// ----------------------------------------------------------------------------
+// TENANT (no MVP: 1 registro fixo)
+// ----------------------------------------------------------------------------
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  document  String?  // CNPJ
+  isActive  Boolean  @default(true) @map("is_active")
+  logoUrl   String?  @map("logo_url")
+  settings  Json     @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  users        User[]
+  leads        Lead[]
+  clients      Client[]
+  enterprises  Enterprise[]
+  funnels      Funnel[]
+  proposals    Proposal[]
+  reservations Reservation[]
+  activities   Activity[]
+  notifications Notification[]
+  auditLogs    AuditLog[]
+
+  @@map("tenants")
+}
+
+// ----------------------------------------------------------------------------
+// USERS
+// ----------------------------------------------------------------------------
+
+model User {
+  // PERFIL do usuário. id == auth.users.id do Supabase (passe esse uuid ao criar).
+  // Sem senha aqui: credenciais ficam no Supabase Auth.
+  id               String    @id @default(uuid())
+  tenantId         String    @map("tenant_id")
+  email            String
+  name             String
+  phone            String?
+  role             Role      @default(broker)
+  avatarUrl        String?   @map("avatar_url")
+  isActive         Boolean   @default(true) @map("is_active")
+  lastLoginAt      DateTime? @map("last_login_at")
+  pushSubscription Json?     @map("push_subscription") // assinatura Web Push (PWA)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  assignedLeads Lead[]         @relation("LeadAssignedTo")
+  activities    Activity[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId, role])
+  @@index([tenantId, isActive])
+  @@map("users")
+}
+
+// ----------------------------------------------------------------------------
+// FUNNELS
+// ----------------------------------------------------------------------------
+
+model Funnel {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  enterpriseId String?  @map("enterprise_id") // null = funil padrão do tenant
+  name         String
+  isDefault    Boolean  @default(false) @map("is_default")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant     Tenant        @relation(fields: [tenantId], references: [id])
+  enterprise Enterprise?   @relation(fields: [enterpriseId], references: [id])
+  stages     FunnelStage[]
+  leads      Lead[]
+
+  @@index([tenantId])
+  @@map("funnels")
+}
+
+model FunnelStage {
+  id               String  @id @default(uuid())
+  funnelId         String  @map("funnel_id")
+  name             String
+  color            String  @default("#1B3A5C")
+  order            Int
+  probabilityWeight Int    @default(0) @map("probability_weight") // 0-100
+  maxDays          Int?    @map("max_days") // SLA por etapa
+  requiredFields   Json    @default("[]") @map("required_fields")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  funnel Funnel @relation(fields: [funnelId], references: [id])
+  leads  Lead[]
+
+  @@index([funnelId, order])
+  @@map("funnel_stages")
+}
+
+// ----------------------------------------------------------------------------
+// LEADS
+// ----------------------------------------------------------------------------
+
+model Lead {
+  id               String     @id @default(uuid())
+  tenantId         String     @map("tenant_id")
+  assignedTo       String?    @map("assigned_to")
+  name             String
+  email            String?
+  phone            String?    // normalizado para dedup
+  cpf              String?    // criptografado em camada de aplicação
+  source           LeadSource @default(manual)
+  utmSource        String?    @map("utm_source")
+  utmMedium        String?    @map("utm_medium")
+  utmCampaign      String?    @map("utm_campaign")
+  status           LeadStatus @default(new)
+  score            Int        @default(0)
+  tags             String[]   @default([])
+  enterpriseId     String?    @map("enterprise_id")
+  funnelId         String?    @map("funnel_id")
+  funnelStageId    String?    @map("funnel_stage_id")
+  firstContactAt   DateTime?  @map("first_contact_at")
+  lastInteractionAt DateTime? @map("last_interaction_at")
+  lostReason       String?    @map("lost_reason")
+  metadata         Json       @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  assignee    User?        @relation("LeadAssignedTo", fields: [assignedTo], references: [id])
+  enterprise  Enterprise?  @relation(fields: [enterpriseId], references: [id])
+  funnel      Funnel?      @relation(fields: [funnelId], references: [id])
+  funnelStage FunnelStage? @relation(fields: [funnelStageId], references: [id])
+  activities  Activity[]
+  proposals   Proposal[]
+  client      Client?
+
+  @@index([tenantId, status])
+  @@index([tenantId, assignedTo])
+  @@index([tenantId, source])
+  @@index([tenantId, funnelStageId])
+  @@index([phone])
+  @@index([email])
+  @@map("leads")
+}
+
+// ----------------------------------------------------------------------------
+// CLIENTS
+// ----------------------------------------------------------------------------
+
+model Client {
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  convertedFromLeadId String? @unique @map("converted_from_lead_id")
+  name               String
+  document           String?  // CPF/CNPJ, criptografado, unique por tenant
+  email              String?
+  phone              String?
+  birthDate          DateTime? @map("birth_date")
+  income             Decimal? @db.Decimal(14, 2)
+  metadata           Json     @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  lead         Lead?         @relation(fields: [convertedFromLeadId], references: [id])
+  proposals    Proposal[]
+  reservations Reservation[]
+
+  @@index([tenantId])
+  @@map("clients")
+}
+
+// ----------------------------------------------------------------------------
+// ENTERPRISES / BLOCKS / UNITS
+// ----------------------------------------------------------------------------
+
+model Enterprise {
+  id             String           @id @default(uuid())
+  tenantId       String           @map("tenant_id")
+  name           String
+  slug           String
+  type           EnterpriseType   @default(vertical)
+  address        Json             @default("{}")
+  description    String?
+  status         EnterpriseStatus @default(selling)
+  totalUnits     Int              @default(0) @map("total_units")
+  availableUnits Int              @default(0) @map("available_units")
+  coverImageUrl  String?          @map("cover_image_url")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  blocks    Block[]
+  units     Unit[]
+  funnels   Funnel[]
+  leads     Lead[]
+  proposals Proposal[]
+
+  @@index([tenantId, status])
+  @@map("enterprises")
+}
+
+model Block {
+  id           String    @id @default(uuid())
+  tenantId     String    @map("tenant_id")
+  enterpriseId String    @map("enterprise_id")
+  name         String
+  type         BlockType @default(tower)
+  order        Int       @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id])
+  units      Unit[]
+
+  @@index([tenantId, enterpriseId])
+  @@map("blocks")
+}
+
+model Unit {
+  id            String     @id @default(uuid())
+  tenantId      String     @map("tenant_id")
+  enterpriseId  String     @map("enterprise_id")
+  blockId       String?    @map("block_id")
+  identifier    String
+  typology      String?
+  floor         Int?
+  areaPrivate   Decimal?   @db.Decimal(10, 2) @map("area_private")
+  areaTotal     Decimal?   @db.Decimal(10, 2) @map("area_total")
+  bedrooms      Int?
+  suites        Int?
+  parkingSpots  Int?       @map("parking_spots")
+  sunPosition   String?    @map("sun_position")
+  status        UnitStatus @default(available)
+  currentPrice  Decimal?   @db.Decimal(14, 2) @map("current_price")
+  reservedBy    String?    @map("reserved_by")
+  reservedUntil DateTime?  @map("reserved_until")
+  metadata      Json       @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  enterprise   Enterprise    @relation(fields: [enterpriseId], references: [id])
+  block        Block?        @relation(fields: [blockId], references: [id])
+  proposals    Proposal[]
+  reservations Reservation[]
+
+  @@unique([tenantId, enterpriseId, blockId, identifier])
+  @@index([tenantId, enterpriseId, status])
+  @@index([tenantId, status])
+  @@map("units")
+}
+
+// ----------------------------------------------------------------------------
+// PROPOSALS / RESERVATIONS
+// ----------------------------------------------------------------------------
+
+model Proposal {
+  id            String         @id @default(uuid())
+  tenantId      String         @map("tenant_id")
+  leadId        String?        @map("lead_id")
+  clientId      String?        @map("client_id")
+  unitId        String         @map("unit_id")
+  enterpriseId  String         @map("enterprise_id")
+  proposedValue Decimal        @db.Decimal(14, 2) @map("proposed_value")
+  downPayment   Decimal?       @db.Decimal(14, 2) @map("down_payment")
+  installments  Int?
+  financingType String?        @map("financing_type")
+  status        ProposalStatus @default(draft)
+  approverId    String?        @map("approver_id")
+  approvalLevel Int            @default(0) @map("approval_level")
+  notes         String?
+  validUntil    DateTime?      @map("valid_until")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  lead         Lead?         @relation(fields: [leadId], references: [id])
+  client       Client?       @relation(fields: [clientId], references: [id])
+  unit         Unit          @relation(fields: [unitId], references: [id])
+  enterprise   Enterprise    @relation(fields: [enterpriseId], references: [id])
+  reservations Reservation[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, unitId])
+  @@map("proposals")
+}
+
+model Reservation {
+  id           String            @id @default(uuid())
+  tenantId     String            @map("tenant_id")
+  unitId       String            @map("unit_id")
+  proposalId   String?           @map("proposal_id")
+  clientId     String?           @map("client_id")
+  brokerId     String?           @map("broker_id")
+  status       ReservationStatus @default(active)
+  reservedAt   DateTime          @default(now()) @map("reserved_at")
+  expiresAt    DateTime          @map("expires_at")
+  cancelledAt  DateTime?         @map("cancelled_at")
+  cancelReason String?           @map("cancel_reason")
+  convertedAt  DateTime?         @map("converted_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  unit     Unit      @relation(fields: [unitId], references: [id])
+  proposal Proposal? @relation(fields: [proposalId], references: [id])
+  client   Client?   @relation(fields: [clientId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([tenantId, unitId, status])
+  @@index([expiresAt]) // usado pelo job de expiração
+  @@map("reservations")
+}
+
+// ----------------------------------------------------------------------------
+// ACTIVITIES (timeline) / NOTIFICATIONS / AUDIT
+// ----------------------------------------------------------------------------
+
+model Activity {
+  id          String       @id @default(uuid())
+  tenantId    String       @map("tenant_id")
+  leadId      String?      @map("lead_id")
+  userId      String       @map("user_id")
+  type        ActivityType @default(note)
+  description String?
+  scheduledAt DateTime?    @map("scheduled_at")
+  completedAt DateTime?    @map("completed_at")
+  metadata    Json         @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  lead   Lead?  @relation(fields: [leadId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, leadId, type])
+  @@index([tenantId, userId, scheduledAt])
+  @@map("activities")
+}
+
+model Notification {
+  id       String              @id @default(uuid())
+  tenantId String              @map("tenant_id")
+  userId   String              @map("user_id")
+  type     String
+  title    String
+  body     String?
+  data     Json                @default("{}")
+  channel  NotificationChannel @default(in_app)
+  isRead   Boolean             @default(false) @map("is_read")
+  readAt   DateTime?           @map("read_at")
+  sentAt   DateTime            @default(now()) @map("sent_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, userId, isRead, sentAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  tenantId   String      @map("tenant_id")
+  userId     String?     @map("user_id")
+  action     AuditAction
+  entityType String      @map("entity_type")
+  entityId   String      @map("entity_id")
+  oldData    Json?       @map("old_data")
+  newData    Json?       @map("new_data")
+  ipAddress  String?     @map("ip_address")
+  userAgent  String?     @map("user_agent")
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, userId, createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
