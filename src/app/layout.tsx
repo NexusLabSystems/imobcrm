@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
+import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
+import PushSubscribe from '@/components/PushSubscribe'
 import './globals.css'
 
 const geistSans = Geist({
@@ -14,7 +16,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'ImobCRM',
-  description: 'CRM imobiliário',
+  description: 'CRM imobiliário — gestão de leads, funil e vendas',
+  themeColor: '#1B3A5C',
+  viewport: { width: 'device-width', initialScale: 1, viewportFit: 'cover' },
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'ImobCRM' },
 }
 
 export default function RootLayout({
@@ -22,7 +27,11 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ServiceWorkerRegister />
+        <PushSubscribe />
+        {children}
+      </body>
     </html>
   )
 }

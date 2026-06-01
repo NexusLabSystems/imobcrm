@@ -178,11 +178,12 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  tenant        Tenant         @relation(fields: [tenantId], references: [id])
-  assignedLeads Lead[]         @relation("LeadAssignedTo")
-  activities    Activity[]
-  notifications Notification[]
-  auditLogs     AuditLog[]
+  tenant           Tenant             @relation(fields: [tenantId], references: [id])
+  assignedLeads    Lead[]             @relation("LeadAssignedTo")
+  activities       Activity[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  priceHistories   UnitPriceHistory[]
 
   @@unique([tenantId, email])
   @@index([tenantId, role])
@@ -328,6 +329,7 @@ model Enterprise {
   totalUnits     Int              @default(0) @map("total_units")
   availableUnits Int              @default(0) @map("available_units")
   coverImageUrl  String?          @map("cover_image_url")
+  mapImageUrl    String?          @map("map_image_url")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -378,6 +380,8 @@ model Unit {
   sunPosition   String?    @map("sun_position")
   status        UnitStatus @default(available)
   currentPrice  Decimal?   @db.Decimal(14, 2) @map("current_price")
+  mapX          Float?     @map("map_x")
+  mapY          Float?     @map("map_y")
   reservedBy    String?    @map("reserved_by")
   reservedUntil DateTime?  @map("reserved_until")
   metadata      Json       @default("{}")
@@ -386,15 +390,38 @@ model Unit {
   updatedAt DateTime @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  enterprise   Enterprise    @relation(fields: [enterpriseId], references: [id])
-  block        Block?        @relation(fields: [blockId], references: [id])
-  proposals    Proposal[]
-  reservations Reservation[]
+  enterprise     Enterprise         @relation(fields: [enterpriseId], references: [id])
+  block          Block?             @relation(fields: [blockId], references: [id])
+  proposals      Proposal[]
+  reservations   Reservation[]
+  priceHistories UnitPriceHistory[]
 
   @@unique([tenantId, enterpriseId, blockId, identifier])
   @@index([tenantId, enterpriseId, status])
   @@index([tenantId, status])
   @@map("units")
+}
+
+// ----------------------------------------------------------------------------
+// UNIT PRICE HISTORY
+// ----------------------------------------------------------------------------
+
+model UnitPriceHistory {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  unitId    String   @map("unit_id")
+  price     Decimal  @db.Decimal(14, 2)
+  changedBy String   @map("changed_by")
+  note      String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  changedByUser User @relation(fields: [changedBy], references: [id])
+  unit          Unit @relation(fields: [unitId], references: [id])
+
+  @@index([unitId, createdAt(sort: Desc)])
+  @@index([tenantId])
+  @@map("unit_price_history")
 }
 
 // ----------------------------------------------------------------------------
