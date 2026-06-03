@@ -92,6 +92,42 @@ Formulário para cadastrar um lead manualmente.
 Ao salvar, o sistema redireciona para o **detalhe do lead**.  
 Leads criados por brokers são atribuídos automaticamente a eles.
 
+### `/leads/import` — Importação CSV
+
+Importa múltiplos leads de uma vez via arquivo CSV.
+
+**Formato esperado:**
+```
+name,email,phone,source
+João Silva,joao@email.com,11999990001,indicacao
+Maria Santos,,11999990002,facebook
+```
+Ou em português: `nome,email,telefone,origem`
+
+- Única coluna obrigatória: `name` ou `nome`
+- Origens aceitas: `website · facebook · instagram · indicacao · portais · manual · importacao`
+- Origens não reconhecidas são tratadas como `importacao`
+- Resultado exibido linha a linha (✓ OK ou ✗ erro)
+
+### Score automático de leads
+
+Cada lead possui um **score de 0 a 100** calculado automaticamente.
+
+| Fator | Peso máximo |
+|---|---|
+| Perfil completo (telefone + e-mail) | 20 pts |
+| Origem do lead | 10 pts |
+| Número de atividades registradas | 20 pts |
+| Etapa do funil (probability_weight) | 20 pts |
+| Recência da última interação | 30 pts |
+
+**Cores do badge:**
+- 🟢 Verde (61–100) — lead quente
+- 🟡 Amarelo (31–60) — lead morno
+- 🔴 Vermelho (0–30) — lead frio
+
+O score é recalculado automaticamente ao criar o lead, registrar uma atividade ou mover no Kanban.
+
 ---
 
 ### `/leads/[id]` — Detalhe do Lead
@@ -163,6 +199,27 @@ Exibe a foto de capa, informações e todas as unidades.
 - Criar novas unidades via botão **"+ Nova unidade"**.
 
 ---
+
+### `/enterprises/[id]/espelho` — Espelho Digital
+
+Visualização em grade das unidades organizadas por andar e bloco, com cores indicando o status de cada unidade.
+
+**Layout:**
+- Linhas = andares (do mais alto para o mais baixo)
+- Colunas = posições no andar
+- Blocos separados em colunas quando o empreendimento tem Torres/Blocos
+
+**Cores:**
+- 🟢 Verde = Disponível
+- 🟠 Laranja = Reservada
+- 🔴 Vermelho = Vendida
+- ⬜ Cinza = Indisponível
+
+**Popup ao clicar:**
+- Identificador, tipologia, andar, dormitórios, área, preço
+- Link para voltar ao detalhe do empreendimento
+
+> Para aparecer no espelho com andares corretos, as unidades precisam ter o campo **Andar** preenchido. Para empreendimentos com múltiplos blocos/torres, as unidades devem estar vinculadas a um bloco.
 
 ### `/enterprises/[id]/map` — Mapa Interativo
 
@@ -245,15 +302,69 @@ Ao submeter, a proposta é criada com status **Aguardando aprovação** e o sist
 
 ### `/proposals/[id]` — Detalhe da Proposta
 
-Exibe todos os dados financeiros da proposta e a reserva associada (se aprovada).
+Exibe todos os dados financeiros, o histórico de aprovações e a reserva associada.
 
-**Ações disponíveis (admin/manager):**
+**Múltiplas alçadas de aprovação:**
 
-| Ação | Quando aparece | O que faz |
+O sistema suporta 1 ou 2 níveis de aprovação, configurável em `/admin/settings`.
+
+| Nível | Quem aprova | Quando aparece |
 |---|---|---|
-| **Aprovar e reservar unidade** | Status = Aguardando aprovação | Aprova a proposta, cria reserva de 24h e muda a unidade para Reservada |
-| **Rejeitar** | Status = Aguardando aprovação | Rejeita a proposta |
-| **Cancelar reserva** | Status = Aprovada + reserva ativa | Cancela a reserva e libera a unidade de volta para Disponível |
+| Nível 1 — Gerência | coordinator, manager, admin | Sempre |
+| Nível 2 — Diretoria | admin apenas | Quando o valor ≥ limite configurado |
+
+**Fluxo com 2 alçadas (ex: limite R$ 500.000):**
+```
+Proposta de R$ 800.000
+  → Gerente aprova (Nível 1) → avança para Nível 2
+  → Admin aprova (Nível 2)  → unidade reservada por 24h
+```
+
+**Fluxo com 1 alçada (abaixo do limite):**
+```
+Proposta de R$ 300.000
+  → Gerente aprova (Nível 1) → unidade reservada por 24h
+```
+
+**Indicador visual** na página mostra círculos numerados (1, 2) com cores:
+- 🟡 Amarelo = aguardando aprovação neste nível
+- 🟢 Verde = aprovado neste nível
+
+**Histórico** exibe cada aprovação/rejeição com nome do aprovador, nível, observação e data.
+
+**Ações disponíveis:**
+
+| Ação | Quem pode | O que faz |
+|---|---|---|
+| **Aprovar** | Roles do nível atual | Avança ao próximo nível ou cria reserva se for o último |
+| **Rejeitar** | Roles do nível atual | Rejeita a proposta em qualquer nível |
+| **Cancelar reserva** | Qualquer aprovador | Cancela a reserva e libera a unidade |
+
+**Reserva ativa — ações disponíveis (admin/manager):**
+
+**Renovar reserva:** botões `24h · 48h · 72h · 7 dias` no card da reserva.
+- Estende o `expiresAt` a partir da data atual de expiração (ou de agora se já expirou)
+- Registra quem renovou e a contagem de renovações
+- A unidade também tem o `reservedUntil` atualizado
+
+**Cancelar reserva (avançado):** campo de motivo obrigatório + botão "Cancelar reserva".
+- Motivo é registrado em `cancelReason`
+- Quem cancelou é salvo em `cancelledBy`
+- Unidade volta a "Disponível" automaticamente
+
+**Download do PDF:** botão **"↓ Baixar PDF"** no topo da página de detalhe da proposta.
+
+O PDF contém:
+- Logo e nome da imobiliária
+- Dados do interessado (lead)
+- Dados do imóvel (empreendimento, unidade, tipologia, andar, área, dormitórios)
+- Dados financeiros (valor, entrada, parcelas, financiamento)
+- Histórico de aprovações com nome do aprovador e data
+- Observações
+- Campos de assinatura (interessado, corretor, imobiliária)
+
+**Configurar o limite em `/admin/settings`:**
+- Campo "Valor mínimo para 2ª alçada" → deixe em branco para usar apenas 1 nível
 
 ---
 
@@ -416,3 +527,177 @@ Sequência sugerida para apresentar o sistema a um cliente ou avaliador:
 **8. Dashboard KPIs (1 min)**
 - Vá para `/admin`
 - Mostre os KPIs atualizados refletindo as ações da demo
+
+---
+
+## 9. Multitenancy — múltiplas imobiliárias
+
+### Como funciona
+
+Cada imobiliária é um **tenant** completamente isolado. Os dados de uma imobiliária nunca aparecem para outra. O isolamento acontece em dois níveis:
+
+1. **Aplicação** — toda query Prisma já filtra por `tenant_id`
+2. **Banco de dados** — RLS (Row Level Security) no Supabase impede acesso direto via SDK/API
+
+### Passos manuais para ativar
+
+Execute os scripts abaixo **na ordem**, no SQL Editor do Supabase:
+
+| Ordem | Arquivo | O que faz |
+|---|---|---|
+| 1 | `supabase/trigger_create_profile_v2.sql` | Substitui o trigger antigo — agora cria tenant automaticamente no signup |
+| 2 | `supabase/rls_policies.sql` | Habilita RLS em todas as tabelas e cria políticas de isolamento |
+
+> **Importante:** adicione `SUPABASE_SERVICE_ROLE_KEY` nas variáveis do Vercel antes de fazer deploy.
+
+### Criar conta de nova imobiliária (`/register`)
+
+1. Acesse `/register`
+2. Preencha: nome da imobiliária, seu nome, e-mail e senha
+3. Confirme o e-mail recebido
+4. Ao logar, você será o **admin** do seu tenant isolado
+
+### Convidar usuários (`/admin/users`)
+
+1. Admin acessa **Painel Admin → Usuários**
+2. Preencha nome, e-mail e role do usuário convidado
+3. Clique em **Enviar convite**
+4. O usuário recebe um e-mail com link para definir senha e acessar
+5. Ao acessar pela primeira vez, o usuário é atribuído automaticamente ao tenant do admin
+
+### Gerenciar roles (`/admin/users`)
+
+- Altere o role de qualquer usuário diretamente pelo dropdown na tabela
+- Roles disponíveis: Admin, Gerente, Coordenador, Corretor, Parceiro
+- Desative ou reative usuários sem excluí-los
+
+### `/admin/bi` — BI completo *(admin/manager)*
+
+Dashboard de inteligência de vendas com período selecionável (7d / 30d / 90d / 1 ano).
+
+**Seções:**
+
+| Seção | O que mostra |
+|---|---|
+| KPIs | Total de leads, novos no período, convertidos, taxa de conversão |
+| Leads por dia | Gráfico de barras com volume diário de novos leads |
+| Funil de conversão | Barras horizontais mostrando leads em cada etapa com probabilidade |
+| Performance por corretor | Tabela: leads no período, total, atividades, convertidos, taxa |
+| Propostas no período | Quantidade e valor total por status |
+| Exportar dados | Botões para download de CSV |
+
+**Exportações disponíveis (filtradas pelo período selecionado):**
+
+| Arquivo | Conteúdo |
+|---|---|
+| Leads CSV | Nome, e-mail, telefone, origem, status, score, etapa, responsável, data |
+| Propostas CSV | Empreendimento, unidade, lead, valor, entrada, parcelas, financiamento, status, data |
+| Atividades CSV | Tipo, descrição, lead, usuário, data |
+
+Os arquivos são baixados diretamente pelo browser com nome incluindo o período (ex: `leads-30d-2026-06-02.csv`).
+
+### `/admin/integrations` — Integrações
+
+Configura integrações externas. Atualmente: **Facebook Lead Ads**.
+
+**URL do Webhook** gerada automaticamente por tenant:
+```
+https://seudominio.com/api/webhooks/facebook/{tenantId}
+```
+
+**Para ativar o Facebook Lead Ads:**
+1. Crie um App no Meta Developer Portal (developers.facebook.com)
+2. Adicione o produto Webhooks → objeto Page → evento `leadgen`
+3. Cole a URL do webhook e defina um Verify Token
+4. Gere um Page Access Token de longa duração
+5. Cole os tokens na página de Integrações e salve
+6. Leads preenchidos no Facebook chegam automaticamente com `source: facebook`
+
+### `/admin/funnels` — Múltiplos funis *(admin/manager)*
+
+Lista todos os funis do tenant. Permite criar novos funis e definir qual é o padrão.
+
+- Cada funil tem um nome e pode ser marcado como **padrão** (usado no Kanban por padrão)
+- O card mostra quantas etapas e leads cada funil tem
+
+### `/admin/funnels/[id]` — Editar funil e etapas *(admin/manager)*
+
+Gerencia as etapas de um funil:
+
+| Campo | Descrição |
+|---|---|
+| Cor | Cor visual da etapa no Kanban |
+| Nome | Rótulo da etapa |
+| Prob. % | Probabilidade de fechamento (usado no forecast) |
+| SLA (dias) | Prazo máximo nesta etapa antes do alerta automático |
+
+- Botões ↑↓ reordenam as etapas
+- Etapas sem leads podem ser excluídas
+- Funis sem leads podem ser excluídos (exceto se houver apenas 1)
+
+### `/kanban` — Seletor de funil
+
+Quando há mais de um funil, um dropdown aparece ao lado do título do Kanban. Selecionar um funil troca as colunas sem recarregar a página inteira.
+
+### Forecast do funil (painel `/admin`)
+
+Tabela abaixo dos KPIs mostrando, por etapa do funil padrão:
+
+| Coluna | O que mostra |
+|---|---|
+| Leads | Leads ativos nesta etapa |
+| Prob. % | Probabilidade de fechamento configurada |
+| Valor total | Soma dos valores das propostas dos leads nesta etapa |
+| Valor ponderado | Valor total × probabilidade (previsão de receita) |
+
+**Total ponderado** no canto superior direito = soma de todos os valores ponderados = forecast do pipeline.
+
+### Regras automáticas de SLA (`supabase/pg_cron_funnel_sla.sql`)
+
+Job pg_cron que roda **todos os dias às 08:00** e verifica:
+
+- Leads ativos em etapas com SLA configurado (`max_days`)
+- Se a última interação ultrapassou o prazo → cria uma atividade do tipo `Sistema` na timeline do lead avisando sobre o SLA vencido
+- Aviso repetido a cada 3 dias enquanto o lead permanecer sem interação
+- Não move o lead automaticamente — apenas alerta o corretor via timeline
+
+**Para ativar:** execute `supabase/pg_cron_funnel_sla.sql` no SQL Editor (requer pg_cron habilitado).
+
+### `/profile/security` — Segurança da conta
+
+Acessível clicando no **nome do usuário** na barra de navegação.
+
+**Autenticação em duas etapas (MFA):**
+
+1. Clique em **"Ativar autenticação em duas etapas"**
+2. Escaneie o QR Code com **Google Authenticator**, **Authy** ou similar
+3. Digite o código de 6 dígitos gerado pelo app
+4. Clique em **Confirmar** — MFA ativado
+
+Após ativar, o login exigirá e-mail + senha + código do app.
+
+Para desativar: clique em **Remover** ao lado do autenticador registrado.
+
+**CPF nos leads (criptografia AES-256-GCM):**
+
+- Admin/manager pode inserir o CPF do lead na página de detalhe do lead
+- O CPF é criptografado antes de salvar no banco (chave `ENCRYPTION_KEY` no servidor)
+- **Admin/manager:** vê o CPF completo formatado (`123.456.789-09`)
+- **Broker:** vê mascarado (`***.456.789-**`)
+- O banco de dados nunca armazena o CPF em texto simples
+
+> **Importante:** adicione `ENCRYPTION_KEY` nas variáveis do Vercel. Sem ela os CPFs não podem ser decriptados. Guarde o valor em local seguro.
+
+### Configurações da imobiliária (`/admin/settings`)
+
+- Edite o nome da imobiliária e CNPJ
+- Faça upload do logo (exibido futuramente no header e PDFs)
+- O **slug** é gerado no cadastro e não pode ser alterado
+
+### Variável de ambiente necessária
+
+| Variável | Onde obter |
+|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Dashboard → Settings → API → service_role key |
+
+> Esta chave **nunca** deve aparecer no browser. Está marcada como server-only no código.

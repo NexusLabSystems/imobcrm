@@ -24,7 +24,9 @@ export default function Nav({ profile }: Props) {
           </nav>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-600">{profile.name}</span>
+          <a href="/profile/security" className="text-sm text-slate-600 hover:text-slate-900">
+            {profile.name}
+          </a>
           <form action="/auth/signout" method="post">
             <button className="rounded border px-2 py-1 text-xs text-slate-600 hover:bg-slate-50">
               Sair

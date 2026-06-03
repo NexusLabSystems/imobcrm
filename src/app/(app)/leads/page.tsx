@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getProfile } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import ScoreBadge from '@/components/ScoreBadge'
 import type { LeadStatus } from '@prisma/client'
 
 const STATUS_LABEL: Record<LeadStatus, string> = {
@@ -50,12 +51,14 @@ export default async function LeadsPage({
     <main className="mx-auto max-w-5xl p-4 sm:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-slate-900">Leads</h1>
-        <Link
-          href="/leads/new"
-          className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
-        >
-          + Novo lead
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/leads/import" className="rounded-md border px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+            Importar CSV
+          </Link>
+          <Link href="/leads/new" className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700">
+            + Novo lead
+          </Link>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -93,9 +96,12 @@ export default async function LeadsPage({
                   {lead.assignee && ` · ${lead.assignee.name}`}
                 </p>
               </div>
-              <span className={`ml-4 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLOR[lead.status]}`}>
-                {STATUS_LABEL[lead.status]}
-              </span>
+              <div className="ml-4 flex shrink-0 items-center gap-2">
+                <ScoreBadge score={lead.score} />
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLOR[lead.status]}`}>
+                  {STATUS_LABEL[lead.status]}
+                </span>
+              </div>
             </Link>
           </li>
         ))}

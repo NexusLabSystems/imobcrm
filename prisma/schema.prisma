@@ -178,12 +178,13 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  tenant           Tenant             @relation(fields: [tenantId], references: [id])
-  assignedLeads    Lead[]             @relation("LeadAssignedTo")
-  activities       Activity[]
-  notifications    Notification[]
-  auditLogs        AuditLog[]
-  priceHistories   UnitPriceHistory[]
+  tenant             Tenant               @relation(fields: [tenantId], references: [id])
+  assignedLeads      Lead[]               @relation("LeadAssignedTo")
+  activities         Activity[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  priceHistories     UnitPriceHistory[]
+  proposalApprovals  ProposalApproval[]
 
   @@unique([tenantId, email])
   @@index([tenantId, role])
@@ -449,16 +450,35 @@ model Proposal {
   updatedAt DateTime @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id])
-  lead         Lead?         @relation(fields: [leadId], references: [id])
-  client       Client?       @relation(fields: [clientId], references: [id])
-  unit         Unit          @relation(fields: [unitId], references: [id])
-  enterprise   Enterprise    @relation(fields: [enterpriseId], references: [id])
+  tenant       Tenant             @relation(fields: [tenantId], references: [id])
+  lead         Lead?              @relation(fields: [leadId], references: [id])
+  client       Client?            @relation(fields: [clientId], references: [id])
+  unit         Unit               @relation(fields: [unitId], references: [id])
+  enterprise   Enterprise         @relation(fields: [enterpriseId], references: [id])
   reservations Reservation[]
+  approvals    ProposalApproval[]
 
   @@index([tenantId, status])
   @@index([tenantId, unitId])
   @@map("proposals")
+}
+
+model ProposalApproval {
+  id         String @id @default(uuid())
+  tenantId   String @map("tenant_id")
+  proposalId String @map("proposal_id")
+  level      Int
+  action     String // 'approved' | 'rejected'
+  userId     String @map("user_id")
+  note       String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  proposal Proposal @relation(fields: [proposalId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@index([proposalId, level])
+  @@map("proposal_approvals")
 }
 
 model Reservation {
@@ -473,7 +493,11 @@ model Reservation {
   expiresAt    DateTime          @map("expires_at")
   cancelledAt  DateTime?         @map("cancelled_at")
   cancelReason String?           @map("cancel_reason")
+  cancelledBy  String?           @map("cancelled_by")
   convertedAt  DateTime?         @map("converted_at")
+  renewedAt    DateTime?         @map("renewed_at")
+  renewedBy    String?           @map("renewed_by")
+  renewalCount Int               @default(0) @map("renewal_count")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

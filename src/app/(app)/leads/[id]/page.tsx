@@ -2,7 +2,9 @@ import { notFound } from 'next/navigation'
 import { getProfile } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { createActivity } from '@/actions/activities'
-import { updateLeadStatus, moveLeadToStage } from '@/actions/leads'
+import { updateLeadStatus, moveLeadToStage, updateLeadCpf } from '@/actions/leads'
+import ScoreBadge from '@/components/ScoreBadge'
+import { safeDecrypt, maskCpf } from '@/lib/crypto'
 import type { LeadStatus, ActivityType } from '@prisma/client'
 
 const STATUS_LABEL: Record<LeadStatus, string> = {
@@ -53,6 +55,12 @@ export default async function LeadDetailPage({
 
   const isAdmin = profile.role === 'admin' || profile.role === 'manager'
 
+  // Decripta CPF no servidor — broker vê mascarado, admin vê completo
+  const decryptedCpf = safeDecrypt(lead.cpf)
+  const displayCpf   = decryptedCpf
+    ? (isAdmin ? decryptedCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : maskCpf(decryptedCpf))
+    : null
+
   return (
     <main className="mx-auto max-w-5xl p-4 sm:p-6">
       <div className="mb-3 flex items-center justify-between">
@@ -81,9 +89,12 @@ export default async function LeadDetailPage({
                   <span className="capitalize">{lead.source}</span>
                 </p>
               </div>
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 whitespace-nowrap">
-                {STATUS_LABEL[lead.status]}
-              </span>
+              <div className="flex items-center gap-2">
+                <ScoreBadge score={lead.score} showLabel />
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 whitespace-nowrap">
+                  {STATUS_LABEL[lead.status]}
+                </span>
+              </div>
             </div>
 
             {lead.assignee && (
@@ -91,6 +102,29 @@ export default async function LeadDetailPage({
                 Responsável: <span className="font-medium">{lead.assignee.name}</span>
               </p>
             )}
+
+            {/* CPF */}
+            <div className="mt-4 flex items-center gap-3">
+              <span className="text-sm text-slate-500">CPF:</span>
+              {displayCpf ? (
+                <span className="font-mono text-sm text-slate-900">{displayCpf}</span>
+              ) : (
+                <span className="text-sm text-slate-400">Não informado</span>
+              )}
+              {isAdmin && (
+                <form action={updateLeadCpf} className="flex gap-2">
+                  <input type="hidden" name="leadId" value={lead.id} />
+                  <input
+                    name="cpf" type="text" placeholder="000.000.000-00"
+                    defaultValue={decryptedCpf?.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') ?? ''}
+                    className="w-36 rounded-md border px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  />
+                  <button type="submit" className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200">
+                    Salvar
+                  </button>
+                </form>
+              )}
+            </div>
 
             {/* Etapa no funil */}
             {funnel && (

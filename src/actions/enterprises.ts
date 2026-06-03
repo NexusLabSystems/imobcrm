@@ -37,6 +37,15 @@ export async function createEnterprise(input: {
   redirect('/enterprises')
 }
 
+export async function setCoverImage(enterpriseId: string, coverImageUrl: string | null) {
+  const { profile } = await requireRole(['admin', 'manager'])
+  await prisma.enterprise.update({
+    where: { id: enterpriseId, tenantId: profile.tenantId },
+    data: { coverImageUrl },
+  })
+  revalidatePath(`/enterprises/${enterpriseId}`)
+}
+
 export async function setMapImage(enterpriseId: string, mapImageUrl: string | null) {
   const { profile } = await requireRole(['admin', 'manager'])
   await prisma.enterprise.update({

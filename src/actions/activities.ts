@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { getProfile } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { recalculateLeadScore } from '@/lib/leadScore'
 import type { ActivityType } from '@prisma/client'
 
 export async function createActivity(formData: FormData) {
@@ -24,5 +25,6 @@ export async function createActivity(formData: FormData) {
     },
   })
 
+  recalculateLeadScore(leadId).catch(() => {})
   revalidatePath(`/leads/${leadId}`)
 }

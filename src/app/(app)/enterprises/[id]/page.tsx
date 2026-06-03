@@ -4,6 +4,7 @@ import { getProfile } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { updateUnitStatus, updateUnitPrice } from '@/actions/units'
 import { updateEnterpriseStatus } from '@/actions/enterprises'
+import CoverImageUpload from '@/components/CoverImageUpload'
 import type { UnitStatus, EnterpriseStatus } from '@prisma/client'
 
 const UNIT_STATUS_LABEL: Record<UnitStatus, string> = {
@@ -73,23 +74,32 @@ export default async function EnterpriseDetailPage({
         <p className="text-sm text-slate-500">
           <a href="/enterprises" className="hover:underline">Empreendimentos</a> › {enterprise.name}
         </p>
-        <a
-          href={`/enterprises/${id}/map`}
-          className="rounded-md border px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-        >
-          🗺 Ver mapa
-        </a>
+        <div className="flex gap-2">
+          <a
+            href={`/enterprises/${id}/espelho`}
+            className="rounded-md border px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            📊 Espelho Digital
+          </a>
+          <a
+            href={`/enterprises/${id}/map`}
+            className="rounded-md border px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            🗺 Ver mapa
+          </a>
+        </div>
       </div>
 
       {/* Header */}
       <div className="mt-3 overflow-hidden rounded-xl border bg-white">
-        {enterprise.coverImageUrl && (
-          <img
-            src={enterprise.coverImageUrl}
-            alt={enterprise.name}
-            className="h-52 w-full object-cover"
+        {isAdmin ? (
+          <CoverImageUpload
+            enterpriseId={enterprise.id}
+            currentUrl={enterprise.coverImageUrl}
           />
-        )}
+        ) : enterprise.coverImageUrl ? (
+          <img src={enterprise.coverImageUrl} alt={enterprise.name} className="h-52 w-full object-cover" />
+        ) : null}
         <div className="p-5">
           <div className="flex items-start justify-between gap-4">
             <div>

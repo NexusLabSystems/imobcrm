@@ -40,6 +40,7 @@ export default async function AdminPage() {
     pendingProposals,
     activeReservations,
     unitCounts,
+    forecastStages,
   ] = await Promise.all([
     prisma.lead.count({ where: { tenantId, deletedAt: null } }),
     prisma.lead.groupBy({
@@ -54,14 +55,45 @@ export default async function AdminPage() {
       where: { tenantId, deletedAt: null },
       _count: true,
     }),
+    // Forecast: funil padrão + etapas + leads ativos com propostas
+    prisma.funnelStage.findMany({
+      where: { funnel: { tenantId, isDefault: true, deletedAt: null } },
+      orderBy: { order: 'asc' },
+      select: {
+        name: true,
+        color: true,
+        probabilityWeight: true,
+        leads: {
+          where: { deletedAt: null, status: { notIn: ['lost', 'discarded', 'converted'] } },
+          select: {
+            proposals: {
+              where: { deletedAt: null, status: { in: ['draft', 'pending_approval', 'approved'] } },
+              select: { proposedValue: true },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+    }),
   ])
 
   const converted = leadsByStatus.find((l) => l.status === 'converted')?._count ?? 0
   const conversionRate = totalLeads > 0 ? ((converted / totalLeads) * 100).toFixed(1) : '0'
 
   const available = unitCounts.find((u) => u.status === 'available')?._count ?? 0
-  const reserved = unitCounts.find((u) => u.status === 'reserved')?._count ?? 0
-  const sold = unitCounts.find((u) => u.status === 'sold')?._count ?? 0
+  const reserved  = unitCounts.find((u) => u.status === 'reserved')?._count ?? 0
+  const sold      = unitCounts.find((u) => u.status === 'sold')?._count ?? 0
+
+  const forecast = forecastStages.map((stage) => {
+    const totalValue = stage.leads.reduce((sum, lead) => {
+      const val = lead.proposals[0]?.proposedValue ? Number(lead.proposals[0].proposedValue) : 0
+      return sum + val
+    }, 0)
+    const weightedValue = totalValue * (stage.probabilityWeight / 100)
+    return { name: stage.name, color: stage.color, count: stage.leads.length, totalValue, weightedValue }
+  })
+  const totalForecast = forecast.reduce((sum, s) => sum + s.weightedValue, 0)
 
   return (
     <main className="mx-auto max-w-5xl p-4 sm:p-6">
@@ -98,6 +130,83 @@ export default async function AdminPage() {
             )
           })}
         </div>
+      </div>
+
+      {/* Forecast do funil */}
+      {forecast.length > 0 && (
+        <div className="mt-6 rounded-xl border bg-white p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-slate-900">Forecast do funil</h2>
+            <span className="text-sm font-semibold text-slate-700">
+              Total ponderado:{' '}
+              {totalForecast.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-slate-500">
+                  <th className="pb-2 pr-4">Etapa</th>
+                  <th className="pb-2 pr-4 text-right">Leads</th>
+                  <th className="pb-2 pr-4 text-right">Prob.</th>
+                  <th className="pb-2 pr-4 text-right">Valor total</th>
+                  <th className="pb-2 text-right">Valor ponderado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {forecast.map((s) => (
+                  <tr key={s.name} className="border-b last:border-0">
+                    <td className="py-2 pr-4">
+                      <span className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
+                        {s.name}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 text-right text-slate-600">{s.count}</td>
+                    <td className="py-2 pr-4 text-right text-slate-500">{forecastStages.find(fs => fs.name === s.name)?.probabilityWeight ?? 0}%</td>
+                    <td className="py-2 pr-4 text-right text-slate-600">
+                      {s.totalValue > 0
+                        ? s.totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+                        : '—'}
+                    </td>
+                    <td className="py-2 text-right font-medium text-slate-900">
+                      {s.weightedValue > 0
+                        ? s.weightedValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-xs text-slate-400">
+            Valor ponderado = valor das propostas × probabilidade da etapa. Apenas leads ativos com proposta.
+          </p>
+        </div>
+      )}
+
+      {/* Atalhos de gestão */}
+      <div className="mt-6 flex flex-wrap gap-3">
+        <a href="/admin/users" className="rounded-lg border bg-white px-5 py-4 hover:shadow-sm">
+          <p className="font-medium text-slate-900">Usuários</p>
+          <p className="text-sm text-slate-500">Convidar e gerenciar roles</p>
+        </a>
+        <a href="/admin/settings" className="rounded-lg border bg-white px-5 py-4 hover:shadow-sm">
+          <p className="font-medium text-slate-900">Configurações</p>
+          <p className="text-sm text-slate-500">Nome, CNPJ e logo</p>
+        </a>
+        <a href="/admin/integrations" className="rounded-lg border bg-white px-5 py-4 hover:shadow-sm">
+          <p className="font-medium text-slate-900">Integrações</p>
+          <p className="text-sm text-slate-500">Facebook Lead Ads</p>
+        </a>
+        <a href="/admin/funnels" className="rounded-lg border bg-white px-5 py-4 hover:shadow-sm">
+          <p className="font-medium text-slate-900">Funis</p>
+          <p className="text-sm text-slate-500">Gerenciar funis e etapas</p>
+        </a>
+        <a href="/admin/bi" className="rounded-lg border bg-white px-5 py-4 hover:shadow-sm">
+          <p className="font-medium text-slate-900">BI</p>
+          <p className="text-sm text-slate-500">Gráficos, performance e exportação</p>
+        </a>
       </div>
 
       {/* Unidades */}
