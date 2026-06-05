@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'ImobCRM',
+  title: 'Urbanix',
   description: 'CRM imobiliário — gestão de leads, funil e vendas',
   themeColor: '#1B3A5C',
   viewport: { width: 'device-width', initialScale: 1, viewportFit: 'cover' },
-  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'ImobCRM' },
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Urbanix' },
 }
 
 export default function RootLayout({
