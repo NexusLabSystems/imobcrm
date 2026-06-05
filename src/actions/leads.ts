@@ -78,6 +78,24 @@ export async function updateLeadCpf(formData: FormData) {
   revalidatePath(`/leads/${leadId}`)
 }
 
+export async function updateLeadInfo(formData: FormData) {
+  const { profile } = await getProfile()
+
+  const leadId = formData.get('leadId') as string
+  const name   = (formData.get('name') as string)?.trim()
+  const email  = (formData.get('email') as string)?.trim() || null
+  const phone  = (formData.get('phone') as string)?.trim() || null
+
+  if (!name) throw new Error('Nome é obrigatório')
+
+  await prisma.lead.update({
+    where: { id: leadId, tenantId: profile.tenantId },
+    data: { name, email, phone },
+  })
+
+  revalidatePath(`/leads/${leadId}`)
+}
+
 export async function assignLead(formData: FormData) {
   const { profile } = await getProfile()
   const leadId = formData.get('leadId') as string

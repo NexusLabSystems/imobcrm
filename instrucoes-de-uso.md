@@ -8,7 +8,7 @@
 
 1. [Configuração inicial (passos manuais)](#1-configuração-inicial-passos-manuais)
 2. [Perfis de usuário e permissões](#2-perfis-de-usuário-e-permissões)
-3. [Páginas e como usar](#3-páginas-e-como-usar)
+3. [Páginas e como usar](#3-páginas-e-como-usar) — inclui landing page pública (`/`) e dashboard (`/dashboard`)
 4. [Fluxo principal de vendas](#4-fluxo-principal-de-vendas)
 5. [Fluxo de expiração automática de reserva](#5-fluxo-de-expiração-automática-de-reserva)
 6. [Web Push — notificações](#6-web-push--notificações)
@@ -52,7 +52,22 @@ O perfil é criado automaticamente ao se cadastrar via Supabase Auth. O `role` p
 
 ## 3. Páginas e como usar
 
-### `/` — Início
+### `/` — Landing Page (pública)
+
+Página de apresentação da plataforma, acessível sem login. Contém:
+- **Navbar** fixa com links de âncora e botões "Entrar" / "Começar grátis"
+- **Hero** com mockup animado do dashboard
+- **Stats** (números do produto)
+- **Funcionalidades** — 6 módulos explicados
+- **Como funciona** — 3 passos
+- **Depoimentos**
+- **CTA final** e **Footer**
+
+Usuários já autenticados são redirecionados automaticamente para `/dashboard`.
+
+---
+
+### `/dashboard` — Início (após login)
 
 Página inicial após o login. Exibe o nome e role do usuário logado.  
 Admin e manager veem o atalho para o **Painel Administrativo**.  
@@ -63,7 +78,7 @@ Todos veem o atalho para **Leads**.
 ### `/login` — Login
 
 Tela de autenticação. Insira e-mail e senha cadastrados no Supabase Auth.  
-Ao autenticar, o sistema redireciona automaticamente para `/`.
+Ao autenticar, o sistema redireciona automaticamente para `/dashboard`.
 
 ---
 
@@ -701,3 +716,207 @@ Para desativar: clique em **Remover** ao lado do autenticador registrado.
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase Dashboard → Settings → API → service_role key |
 
 > Esta chave **nunca** deve aparecer no browser. Está marcada como server-only no código.
+
+---
+
+## 10. Tabelas de pagamento e Simulador
+
+### `/enterprises/[id]/tabelas` — Tabelas de pagamento *(admin/manager)*
+
+Cada empreendimento pode ter múltiplas tabelas de pagamento (ex: À Vista, Parcelado 120×, Financiado CEF).
+
+| Campo | Descrição |
+|---|---|
+| Nome | Nome da tabela (ex: "Plano Facilit 120×") |
+| Entrada (%) | Percentual do valor total cobrado como entrada |
+| Nº de parcelas | Quantidade de parcelas mensais |
+| Taxa de juros a.m. (%) | Juros mensais (0 = sem juros / tabela simples) |
+| Indexador | Correção das parcelas: INCC, IPCA, IGP-M ou nenhum |
+
+Acesse via botão **"Tabelas de pagamento"** no detalhe do empreendimento (visível apenas para admin/manager).
+
+### `/enterprises/[id]/simulador` — Simulador de pagamento
+
+Disponível para qualquer usuário. Permite simular o financiamento de qualquer unidade disponível do empreendimento.
+
+**Como usar:**
+1. Selecione a unidade na lista lateral (exibe apenas unidades disponíveis)
+2. Ajuste o valor do imóvel se necessário (pré-preenchido com o preço da unidade)
+3. Clique nas pílulas para alternar entre as tabelas cadastradas
+4. Veja o resultado: **Entrada**, **Parcela mensal**, **Valor financiado** e **Total do contrato**
+5. Compare todas as tabelas na grade de comparação abaixo
+
+**Fórmula das parcelas:**
+- Sem juros (taxa = 0): Parcela = Financiado ÷ Nº parcelas
+- Com juros (Tabela Price): PMT = PV × [i(1+i)^n] / [(1+i)^n − 1]
+
+---
+
+## 11. Agenda de tarefas
+
+### `/agenda` — Agenda *(todos os usuários)*
+
+Centraliza todas as atividades com data/hora agendada (`scheduledAt`).
+
+**Filtros de visão:**
+| Filtro | O que mostra |
+|---|---|
+| Próximas | Atividades agendadas a partir de hoje, ainda não concluídas |
+| Atrasadas | Atividades com data passada, não concluídas |
+| Concluídas | Atividades marcadas como concluídas |
+
+**Filtro de equipe (admin/manager):**
+- **Minhas** — apenas as atividades do usuário logado
+- **Equipe** — atividades de todos os usuários do tenant
+
+**Agendar uma atividade:** no detalhe do lead, ao registrar uma atividade, use o campo "Agendar para" (data e hora). A atividade aparece automaticamente na agenda.
+
+**Concluir:** clique no ícone de check no lado direito de cada atividade.
+
+---
+
+## 12. Filas de distribuição de leads
+
+### `/admin/filas` — Filas *(admin/manager)*
+
+Configura a distribuição automática de leads por round-robin.
+
+**Quando é usado:**
+- Leads que chegam via endpoint `/api/leads/inbound` (landing pages, portais, formulários externos)
+- Leads do Facebook Lead Ads (via webhook)
+
+**Campos de uma fila:**
+
+| Campo | Descrição |
+|---|---|
+| Nome | Identificação da fila |
+| Empreendimento | Opcional — filtra leads por empreendimento específico |
+| Origens | Opcional — filtra por canal (Facebook, Site, etc.) |
+| Estratégia | Round-robin (sequencial) |
+| Corretores | Lista de corretores que recebem leads |
+
+**Lógica de prioridade:**
+1. Fila que combina empreendimento + origem
+2. Fila que combina apenas origem
+3. Fila que combina apenas empreendimento
+4. Fila sem filtros (aceita qualquer lead)
+
+### Endpoint de captura de leads — `/api/leads/inbound`
+
+Use este endpoint para integrar landing pages, formulários e portais externos.
+
+**Request:**
+```http
+POST /api/leads/inbound
+Content-Type: application/json
+x-api-key: <INBOUND_API_KEY>
+
+{
+  "name": "João Silva",
+  "email": "joao@email.com",
+  "phone": "11999990001",
+  "source": "website",
+  "enterpriseId": "uuid-do-empreendimento",
+  "utmSource": "google",
+  "utmMedium": "cpc",
+  "utmCampaign": "loteamento-norte"
+}
+```
+
+**Variável de ambiente necessária:**
+
+| Variável | Valor |
+|---|---|
+| `INBOUND_API_KEY` | Qualquer string secreta (ex: gerada com `openssl rand -hex 32`) |
+
+**Resposta de sucesso (201):** `{ "id": "uuid", "assignedTo": "uuid-do-corretor" }`
+
+**Deduplicação:** se já existe lead com mesmo e-mail ou telefone, retorna o lead existente sem criar duplicata (`{ "id": "uuid", "deduplicated": true }`).
+
+---
+
+## 13. Integrações externas
+
+### WhatsApp — wa.me (imediato, sem configuração)
+
+No detalhe de qualquer lead com telefone cadastrado, aparece o botão **"WhatsApp"**.
+
+- Abre o WhatsApp Web / app com mensagem pré-preenchida: *"Olá {Nome}, tudo bem? Estou entrando em contato sobre um empreendimento que pode te interessar."*
+- Funciona sem nenhuma configuração adicional
+
+### WhatsApp — Z-API (envio programático)
+
+Configure em **Admin → Integrações → WhatsApp (Z-API)**:
+
+1. Crie uma conta em **z-api.io**
+2. Crie uma instância e escaneie o QR Code
+3. Copie: Instance ID, Token e Client Token
+4. Cole na página de integrações e salve
+
+Com Z-API configurado, as atividades do tipo "WhatsApp" registradas no lead podem disparar mensagens automáticas.
+
+### Assinatura eletrônica — ClickSign
+
+Configure em **Admin → Integrações → Assinatura eletrônica (ClickSign)**:
+
+1. Crie uma conta em **app.clicksign.com**
+2. Vá em **Configurações → Integrações → API**
+3. Gere uma Access Token
+4. Selecione o ambiente (Sandbox para testes, Produção quando pronto)
+5. Cole a chave na página de integrações
+
+Com ClickSign configurado, propostas aprovadas podem ser enviadas para assinatura diretamente pelo CRM.
+
+### Integração ERP (UAU / Sienge / outros)
+
+Configure em **Admin → Integrações → ERP**:
+
+- Selecione o ERP (UAU, Sienge ou Outro)
+- Informe a URL base da API e o Token de autenticação
+- Defina um Webhook Secret para validar as requisições vindas do ERP
+
+**Endpoint para receber dados do ERP:**
+```http
+POST /api/webhooks/erp
+Content-Type: application/json
+
+{
+  "event": "unit_sold",
+  "tenantSlug": "slug-da-imobiliaria",
+  "key": "erpWebhookKey-configurado",
+  "unit": {
+    "identifier": "Lote 42",
+    "enterpriseSlug": "loteamento-bela-vista"
+  }
+}
+```
+
+**Eventos suportados:**
+
+| Evento | Efeito |
+|---|---|
+| `unit_update` | Atualiza status e/ou preço da unidade |
+| `unit_sold` | Marca unidade como Vendida |
+| `unit_reserved` | Marca unidade como Reservada |
+| `lead_callback` | Atualiza `lastInteractionAt` do lead |
+
+### Facebook Lead Ads
+
+Configure em **Admin → Integrações → Facebook Lead Ads** (já documentado na seção 9).
+
+---
+
+## 14. Variáveis de ambiente — completo
+
+| Variável | Obrigatória | Descrição |
+|---|---|---|
+| `DATABASE_URL` | Sim | Supabase connection string (pooler porta 6543) |
+| `DIRECT_URL` | Sim | Supabase connection string (direct porta 5432) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Sim | URL do projeto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Sim | Anon key do Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sim | Service role key (multitenancy + convites) |
+| `ENCRYPTION_KEY` | Sim | 32+ chars para criptografia de CPF |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Push | Chave VAPID pública |
+| `VAPID_PRIVATE_KEY` | Push | Chave VAPID privada |
+| `VAPID_MAILTO` | Push | `mailto:seu@email.com` |
+| `INBOUND_API_KEY` | Filas | Chave secreta para o endpoint `/api/leads/inbound` |

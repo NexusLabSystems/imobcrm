@@ -74,19 +74,25 @@ export default async function EnterpriseDetailPage({
         <p className="text-sm text-slate-500">
           <a href="/enterprises" className="hover:underline">Empreendimentos</a> › {enterprise.name}
         </p>
-        <div className="flex gap-2">
-          <a
-            href={`/enterprises/${id}/espelho`}
-            className="rounded-md border px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-          >
-            📊 Espelho Digital
+        <div className="flex flex-wrap gap-2">
+          <a href={`/enterprises/${id}/espelho`}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50">
+            Espelho Digital
           </a>
-          <a
-            href={`/enterprises/${id}/map`}
-            className="rounded-md border px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-          >
-            🗺 Ver mapa
+          <a href={`/enterprises/${id}/map`}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50">
+            Mapa
           </a>
+          <a href={`/enterprises/${id}/simulador`}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50">
+            Simulador
+          </a>
+          {isAdmin && (
+            <a href={`/enterprises/${id}/tabelas`}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50">
+              Tabelas de pagamento
+            </a>
+          )}
         </div>
       </div>
 

@@ -137,6 +137,35 @@ export async function deleteStage(formData: FormData) {
   revalidatePath(`/admin/funnels/${funnelId}`)
 }
 
+// Cria funil padrão imobiliário com etapas pré-definidas
+export async function createDefaultFunnel() {
+  const { profile } = await requireRole(['admin', 'manager'])
+
+  const existing = await prisma.funnel.findFirst({
+    where: { tenantId: profile.tenantId, isDefault: true, deletedAt: null },
+  })
+  if (existing) redirect('/kanban')
+
+  const funnel = await prisma.funnel.create({
+    data: { tenantId: profile.tenantId, name: 'Funil de Vendas', isDefault: true },
+  })
+
+  const stages = [
+    { name: 'Primeiro Contato', color: '#3B82F6', order: 1, probabilityWeight: 10 },
+    { name: 'Qualificação',     color: '#8B5CF6', order: 2, probabilityWeight: 25 },
+    { name: 'Visita',           color: '#F59E0B', order: 3, probabilityWeight: 50 },
+    { name: 'Proposta',         color: '#10B981', order: 4, probabilityWeight: 70 },
+    { name: 'Negociação',       color: '#F97316', order: 5, probabilityWeight: 85 },
+    { name: 'Fechado',          color: '#059669', order: 6, probabilityWeight: 100 },
+  ]
+
+  await prisma.funnelStage.createMany({
+    data: stages.map((s) => ({ ...s, funnelId: funnel.id, requiredFields: [] })),
+  })
+
+  redirect('/kanban')
+}
+
 export async function moveStageOrder(formData: FormData) {
   await requireRole(['admin', 'manager'])
 

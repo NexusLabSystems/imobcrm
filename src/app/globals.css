@@ -24,3 +24,56 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ── Animações de carregamento (hero) ─────────────────────── */
+@keyframes lp-fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes lp-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes lp-slide-down {
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes lp-scale-in {
+  from { opacity: 0; transform: scale(0.96) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes lp-slide-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes lp-slide-left {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.lp-anim-fade-up   { animation: lp-fade-up   0.6s ease-out both; }
+.lp-anim-fade-in   { animation: lp-fade-in   0.5s ease-out both; }
+.lp-anim-slide-down{ animation: lp-slide-down 0.5s ease-out both; }
+.lp-anim-scale-in  { animation: lp-scale-in  0.75s ease-out both; }
+.lp-anim-slide-right{ animation: lp-slide-right 0.55s ease-out both; }
+.lp-anim-slide-left { animation: lp-slide-left  0.55s ease-out both; }
+
+.lp-delay-1 { animation-delay: 0.08s; }
+.lp-delay-2 { animation-delay: 0.18s; }
+.lp-delay-3 { animation-delay: 0.30s; }
+.lp-delay-4 { animation-delay: 0.44s; }
+.lp-delay-5 { animation-delay: 0.55s; }
+.lp-delay-6 { animation-delay: 0.70s; }
+.lp-delay-7 { animation-delay: 0.85s; }
+.lp-delay-8 { animation-delay: 1.00s; }
+
+/* ── Animações de scroll (IntersectionObserver) ──────────── */
+.scroll-anim {
+  opacity: 0;
+  transform: translateY(20px);
+}
+.scroll-anim.in-view {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}

@@ -1,7 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+
+// ── Utilitários ──────────────────────────────────────────────────────────────
 
 function Spinner() {
   return (
@@ -32,18 +35,22 @@ function PasswordStrength({ password }: { password: string }) {
     { label: 'Número',               ok: /\d/.test(password) },
   ]
   const score = checks.filter((c) => c.ok).length
-  const bar   = score === 0 ? 'w-0' : score === 1 ? 'w-1/3 bg-red-400' : score === 2 ? 'w-2/3 bg-yellow-400' : 'w-full bg-emerald-500'
+  const bar =
+    score === 0 ? 'w-0' :
+    score === 1 ? 'w-1/3 bg-red-400' :
+    score === 2 ? 'w-2/3 bg-yellow-400' :
+    'w-full bg-emerald-500'
 
   if (!password) return null
 
   return (
     <div className="mt-2 space-y-1.5">
-      <div className="h-1.5 w-full rounded-full bg-slate-100">
+      <div className="h-1.5 w-full rounded-full bg-white/10">
         <div className={`h-1.5 rounded-full transition-all duration-300 ${bar}`} />
       </div>
       <ul className="space-y-0.5">
         {checks.map((c) => (
-          <li key={c.label} className={`flex items-center gap-1.5 text-xs ${c.ok ? 'text-emerald-600' : 'text-slate-400'}`}>
+          <li key={c.label} className={`flex items-center gap-1.5 text-xs ${c.ok ? 'text-emerald-400' : 'text-blue-400'}`}>
             <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24" aria-hidden="true">
               {c.ok
                 ? <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -58,10 +65,12 @@ function PasswordStrength({ password }: { password: string }) {
 }
 
 const BENEFITS = [
-  'Isolamento total de dados por imobiliária',
-  'Convide sua equipe com roles personalizados',
-  'Acesse de qualquer dispositivo como PWA',
+  { text: 'Isolamento total de dados por imobiliária' },
+  { text: 'Convide sua equipe com perfis personalizados' },
+  { text: 'Acesse de qualquer dispositivo como PWA' },
 ]
+
+// ── Página ───────────────────────────────────────────────────────────────────
 
 export default function RegisterPage() {
   const supabase = createClient()
@@ -76,12 +85,12 @@ export default function RegisterPage() {
   const [success,     setSuccess]     = useState(false)
 
   function validate(): string | null {
-    if (!companyName.trim()) return 'Informe o nome da imobiliária.'
-    if (!name.trim())        return 'Informe seu nome.'
-    if (!email.trim())       return 'Informe seu e-mail.'
-    if (password.length < 8) return 'A senha deve ter pelo menos 8 caracteres.'
-    if (!/[A-Z]/.test(password)) return 'Inclua pelo menos uma letra maiúscula na senha.'
-    if (!/\d/.test(password))    return 'Inclua pelo menos um número na senha.'
+    if (!companyName.trim())      return 'Informe o nome da imobiliária.'
+    if (!name.trim())             return 'Informe seu nome.'
+    if (!email.trim())            return 'Informe seu e-mail.'
+    if (password.length < 8)      return 'A senha deve ter pelo menos 8 caracteres.'
+    if (!/[A-Z]/.test(password))  return 'Inclua pelo menos uma letra maiúscula na senha.'
+    if (!/\d/.test(password))     return 'Inclua pelo menos um número na senha.'
     return null
   }
 
@@ -97,14 +106,18 @@ export default function RegisterPage() {
       const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { data: { name: name.trim(), company_name: companyName.trim() } },
+        options: {
+          data: { name: name.trim(), company_name: companyName.trim() },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       })
 
       if (error) {
-        if (error.message.includes('already registered'))
-          setError('Este e-mail já está cadastrado. Tente fazer login.')
-        else
-          setError(error.message)
+        setError(
+          error.message.includes('already registered')
+            ? 'Este e-mail já está cadastrado. Tente fazer login.'
+            : error.message
+        )
         return
       }
 
@@ -116,84 +129,111 @@ export default function RegisterPage() {
     }
   }
 
-  const inputClass = "block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 placeholder:text-slate-400 touch-manipulation transition-colors focus:border-[#1B3A5C] focus:outline-none focus:ring-2 focus:ring-[#1B3A5C]/20"
+  const inputClass =
+    'block w-full rounded-lg border border-white/15 bg-white/10 px-3.5 py-3 text-sm text-white placeholder:text-blue-400 touch-manipulation transition-colors focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/20'
 
   return (
-    <div className="flex min-h-dvh">
+    <div className="relative flex min-h-dvh overflow-hidden bg-[#1B3A5C]">
 
-      {/* ── Painel de marca (desktop) ─────────────────────────────── */}
+      {/* ── Fundo ── */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-linear-to-br from-[#1B3A5C] via-[#142d48] to-[#0a1929]" />
+        <div className="absolute -top-40 -right-40 h-125 w-125 rounded-full bg-blue-400/8 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 h-100 w-100 rounded-full bg-emerald-400/6 blur-3xl" />
+        <svg className="absolute inset-0 h-full w-full opacity-[0.04]" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" />
+        </svg>
+      </div>
+
+      {/* ── Painel esquerdo (desktop) ── */}
       <aside
         aria-hidden="true"
-        className="hidden lg:flex lg:w-[480px] lg:flex-col lg:justify-between lg:p-12 bg-linear-to-br from-[#1B3A5C] to-[#0f2240]"
+        className="relative hidden lg:flex lg:w-115 lg:flex-col lg:justify-between lg:px-14 lg:py-12"
       >
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
-            <span className="text-lg font-bold text-white" aria-hidden="true">I</span>
+        <Link href="/" className="lp-anim-slide-down flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
+            <span className="text-lg font-bold text-white">I</span>
           </div>
           <span className="text-xl font-semibold tracking-tight text-white">ImobCRM</span>
-        </div>
+        </Link>
 
-        <div>
-          <h2 className="text-3xl font-bold leading-tight text-white">
-            Crie sua conta<br />e comece a vender<br />mais em minutos.
+        <div className="lp-anim-fade-up" style={{ animationDelay: '0.15s' }}>
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1.5 text-sm font-medium text-emerald-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Cadastro gratuito
+          </div>
+          <h2 className="text-3xl font-extrabold leading-tight text-white">
+            Crie sua conta e<br />comece a vender mais{' '}
+            <span className="bg-linear-to-r from-emerald-300 to-teal-300 bg-clip-text text-transparent">
+              em minutos.
+            </span>
           </h2>
           <p className="mt-4 text-base leading-relaxed text-blue-200">
             Cada imobiliária tem seu próprio espaço isolado, seguro e pronto para uso.
           </p>
 
           <ul className="mt-8 space-y-3">
-            {BENEFITS.map((label) => (
-              <li key={label} className="flex items-center gap-3 text-sm text-blue-100">
-                <svg className="h-5 w-5 shrink-0 text-emerald-400" fill="none" stroke="currentColor"
-                  strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                {label}
+            {BENEFITS.map(({ text }, i) => (
+              <li
+                key={text}
+                className="lp-anim-fade-up flex items-center gap-3 text-sm text-blue-100"
+                style={{ animationDelay: `${0.3 + i * 0.1}s` }}
+              >
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400/20 ring-1 ring-emerald-400/30">
+                  <svg className="h-3 w-3 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </span>
+                {text}
               </li>
             ))}
           </ul>
         </div>
 
-        <p className="text-xs text-blue-300">
+        <p className="lp-anim-fade-up text-xs text-blue-400" style={{ animationDelay: '0.6s' }}>
           © {new Date().getFullYear()} ImobCRM · Todos os direitos reservados
         </p>
       </aside>
 
-      {/* ── Painel do formulário ──────────────────────────────────── */}
-      <div className="flex flex-1 flex-col items-center justify-center bg-slate-50 px-4 py-12 sm:px-8">
+      {/* ── Painel direito: formulário ── */}
+      <div className="relative flex flex-1 flex-col items-center justify-center px-4 py-12 sm:px-8">
 
         {/* Logo mobile */}
-        <div className="mb-8 flex items-center gap-2 lg:hidden" aria-hidden="true">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1B3A5C]">
+        <Link href="/" className="lp-anim-slide-down mb-8 flex items-center gap-2.5 lg:hidden">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
             <span className="text-base font-bold text-white">I</span>
           </div>
-          <span className="text-xl font-semibold tracking-tight text-slate-900">ImobCRM</span>
-        </div>
+          <span className="text-xl font-semibold tracking-tight text-white">ImobCRM</span>
+        </Link>
 
-        <div className="w-full max-w-sm">
-          <div className="rounded-2xl bg-white px-6 py-10 shadow-sm ring-1 ring-slate-200 sm:px-8">
+        <div className="lp-anim-fade-up w-full max-w-sm" style={{ animationDelay: '0.1s' }}>
+          <div className="rounded-2xl border border-white/10 bg-slate-900/60 px-6 py-10 shadow-2xl backdrop-blur-xl sm:px-8">
 
             {success ? (
               /* ── Estado de sucesso ── */
               <div className="text-center">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
-                  <svg className="h-7 w-7 text-emerald-600" fill="none" stroke="currentColor"
-                    strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-400/20 ring-1 ring-emerald-400/30">
+                  <svg className="h-8 w-8 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76" />
                   </svg>
                 </div>
-                <h1 className="text-xl font-bold text-slate-900">Confirme seu e-mail</h1>
-                <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                <h1 className="text-xl font-bold text-white">Confirme seu e-mail</h1>
+                <p className="mt-3 text-sm leading-relaxed text-blue-200">
                   Enviamos um link de confirmação para{' '}
-                  <span className="font-medium text-slate-700">{email}</span>.
+                  <span className="font-semibold text-white">{email}</span>.
                   Clique no link para ativar sua conta.
                 </p>
-                <p className="mt-2 text-xs text-slate-400">
+                <p className="mt-2 text-xs text-blue-400">
                   Verifique também a pasta de spam.
                 </p>
                 <a
                   href="/login"
-                  className="mt-6 inline-flex w-full items-center justify-center rounded-lg bg-[#1B3A5C] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0f2240] focus:outline-none focus:ring-2 focus:ring-[#1B3A5C] focus:ring-offset-2"
+                  className="mt-6 inline-flex w-full items-center justify-center rounded-lg bg-emerald-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-transparent"
                 >
                   Ir para o login
                 </a>
@@ -202,8 +242,8 @@ export default function RegisterPage() {
               /* ── Formulário ── */
               <>
                 <div className="mb-6">
-                  <h1 className="text-2xl font-bold text-slate-900">Criar conta</h1>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <h1 className="text-2xl font-bold text-white">Criar conta</h1>
+                  <p className="mt-1 text-sm text-blue-300">
                     Cada imobiliária tem seu próprio espaço isolado.
                   </p>
                 </div>
@@ -211,8 +251,8 @@ export default function RegisterPage() {
                 <form onSubmit={handleSubmit} noValidate className="space-y-4">
 
                   <div className="space-y-1.5">
-                    <label htmlFor="companyName" className="block text-sm font-medium text-slate-700">
-                      Nome da imobiliária <span className="text-red-500" aria-hidden="true">*</span>
+                    <label htmlFor="companyName" className="block text-sm font-medium text-blue-100">
+                      Nome da imobiliária
                     </label>
                     <input
                       id="companyName" name="companyName" type="text"
@@ -224,8 +264,8 @@ export default function RegisterPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="name" className="block text-sm font-medium text-slate-700">
-                      Seu nome <span className="text-red-500" aria-hidden="true">*</span>
+                    <label htmlFor="name" className="block text-sm font-medium text-blue-100">
+                      Seu nome
                     </label>
                     <input
                       id="name" name="name" type="text"
@@ -237,8 +277,8 @@ export default function RegisterPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="email" className="block text-sm font-medium text-slate-700">
-                      E-mail <span className="text-red-500" aria-hidden="true">*</span>
+                    <label htmlFor="email" className="block text-sm font-medium text-blue-100">
+                      E-mail
                     </label>
                     <input
                       id="email" name="email" type="email"
@@ -250,8 +290,8 @@ export default function RegisterPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="password" className="block text-sm font-medium text-slate-700">
-                      Senha <span className="text-red-500" aria-hidden="true">*</span>
+                    <label htmlFor="password" className="block text-sm font-medium text-blue-100">
+                      Senha
                     </label>
                     <div className="relative">
                       <input
@@ -266,7 +306,7 @@ export default function RegisterPage() {
                         type="button"
                         onClick={() => setShowPwd((v) => !v)}
                         aria-label={showPwd ? 'Ocultar senha' : 'Mostrar senha'}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 transition-colors hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-[#1B3A5C]/40"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-blue-400 transition-colors hover:text-blue-200 focus:outline-none"
                       >
                         <EyeIcon open={showPwd} />
                       </button>
@@ -276,11 +316,9 @@ export default function RegisterPage() {
 
                   {error && (
                     <div role="alert" aria-live="polite"
-                      className="flex items-start gap-2 rounded-lg bg-red-50 px-3.5 py-3 text-sm text-red-700">
+                      className="flex items-start gap-2 rounded-lg border border-red-400/20 bg-red-500/10 px-3.5 py-3 text-sm text-red-300">
                       <svg className="mt-0.5 h-4 w-4 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                        <path fillRule="evenodd"
-                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                          clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                       </svg>
                       {error}
                     </div>
@@ -289,25 +327,28 @@ export default function RegisterPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white transition-colors focus:outline-none focus:ring-2 focus:ring-[#1B3A5C] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
-                      loading ? 'bg-[#2d5a8e]' : 'bg-[#1B3A5C] hover:bg-[#0f2240]'
-                    }`}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {loading && <Spinner />}
                     {loading ? 'Criando conta…' : 'Criar conta'}
                   </button>
                 </form>
 
-                <p className="mt-6 text-center text-sm text-slate-500">
+                <p className="mt-6 text-center text-sm text-blue-300">
                   Já tem conta?{' '}
-                  <a href="/login"
-                    className="font-semibold text-[#1B3A5C] transition-colors hover:text-[#0f2240]">
+                  <a href="/login" className="font-semibold text-emerald-400 transition-colors hover:text-emerald-300">
                     Entrar
                   </a>
                 </p>
               </>
             )}
           </div>
+
+          <p className="mt-6 text-center text-xs text-blue-400">
+            <Link href="/" className="transition-colors hover:text-blue-200">
+              ← Voltar ao início
+            </Link>
+          </p>
         </div>
       </div>
     </div>

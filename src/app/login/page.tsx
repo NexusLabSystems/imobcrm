@@ -1,8 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+
+// ── Utilitários ──────────────────────────────────────────────────────────────
 
 function Spinner() {
   return (
@@ -26,14 +29,6 @@ function EyeIcon({ open }: { open: boolean }) {
   )
 }
 
-// Fix #7 — removido campo icon (emoji, nunca usado)
-const FEATURES = [
-  'Gestão de leads e pipeline de vendas',
-  'Funil Kanban com atualização em tempo real',
-  'Propostas, reservas e aprovações em múltiplas alçadas',
-]
-
-// Fix #9 — mensagens de erro específicas por código Supabase
 function parseAuthError(msg: string): string {
   if (msg.includes('rate') || msg.includes('too many'))
     return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.'
@@ -41,6 +36,20 @@ function parseAuthError(msg: string): string {
     return 'Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.'
   return 'E-mail ou senha inválidos. Verifique os dados e tente novamente.'
 }
+
+const URL_ERRORS: Record<string, string> = {
+  link_expirado: 'O link de confirmação expirou. Tente fazer login novamente.',
+  link_invalido: 'Link inválido. Tente fazer login normalmente.',
+  perfil:        'Conta sem perfil configurado. Entre em contato com o suporte.',
+}
+
+const FEATURES = [
+  'Gestão de leads e pipeline de vendas',
+  'Funil Kanban com atualização em tempo real',
+  'Propostas e aprovações em múltiplas alçadas',
+]
+
+// ── Página ───────────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
   const router   = useRouter()
@@ -52,11 +61,16 @@ export default function LoginPage() {
   const [error,    setError]    = useState<string | null>(null)
   const [loading,  setLoading]  = useState(false)
 
-  // Fix #4 — validação client-side antes de chamar a API
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const urlError = params.get('error')
+    if (urlError && URL_ERRORS[urlError]) setError(URL_ERRORS[urlError])
+  }, [])
+
   function validate(): string | null {
-    if (!email.trim())    return 'Informe seu e-mail.'
-    if (!password.trim()) return 'Informe sua senha.'
-    if (password.length < 6) return 'A senha deve ter pelo menos 6 caracteres.'
+    if (!email.trim())        return 'Informe seu e-mail.'
+    if (!password.trim())     return 'Informe sua senha.'
+    if (password.length < 6)  return 'A senha deve ter pelo menos 6 caracteres.'
     return null
   }
 
@@ -70,92 +84,115 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
-      if (error) {
-        setError(parseAuthError(error.message))
-        return
-      }
-      // Fix #3 — não resetar loading aqui; a navegação vai desmontar o componente
-      router.push('/')
+      if (error) { setError(parseAuthError(error.message)); return }
+      router.push('/dashboard')
       router.refresh()
     } catch {
       setError('Erro de conexão. Tente novamente.')
     } finally {
-      // Fix #3 — garante reset do loading em qualquer caso (exceto navegação bem-sucedida)
       setLoading((prev) => { if (prev) setTimeout(() => setLoading(false), 100); return prev })
     }
   }
 
   return (
-    <div className="flex min-h-dvh">
+    <div className="relative flex min-h-dvh overflow-hidden bg-[#1B3A5C]">
 
-      {/* ── Painel de marca (desktop) ──────────────────────────────
-          Fix #2: painel é aria-hidden para não confundir leitores de tela
-          (h2 decorativo — h1 real está no formulário)
-      */}
+      {/* ── Fundo: gradiente + grid (igual ao hero da landing) ── */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-linear-to-br from-[#1B3A5C] via-[#142d48] to-[#0a1929]" />
+        <div className="absolute -top-40 -right-40 h-125 w-125 rounded-full bg-blue-400/8 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 h-100 w-100 rounded-full bg-emerald-400/6 blur-3xl" />
+        <svg className="absolute inset-0 h-full w-full opacity-[0.04]" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" />
+        </svg>
+      </div>
+
+      {/* ── Painel esquerdo (desktop) ── */}
       <aside
         aria-hidden="true"
-        className="hidden lg:flex lg:w-[480px] lg:flex-col lg:justify-between lg:p-12 bg-linear-to-br from-[#1B3A5C] to-[#0f2240]"
+        className="relative hidden lg:flex lg:w-115 lg:flex-col lg:justify-between lg:px-14 lg:py-12"
       >
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
-            <span className="text-lg font-bold text-white" aria-hidden="true">I</span>
+        <Link href="/" className="lp-anim-slide-down flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
+            <span className="text-lg font-bold text-white">I</span>
           </div>
           <span className="text-xl font-semibold tracking-tight text-white">ImobCRM</span>
-        </div>
+        </Link>
 
-        <div>
-          {/* Fix #2: h2 só existe dentro de <aside aria-hidden> — não polui outline de acessibilidade */}
-          <h2 className="text-3xl font-bold leading-tight text-white">
-            O CRM feito para<br />imobiliárias que<br />querem vender mais.
+        <div className="lp-anim-fade-up" style={{ animationDelay: '0.15s' }}>
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1.5 text-sm font-medium text-emerald-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Plataforma imobiliária completa
+          </div>
+          <h2 className="text-3xl font-extrabold leading-tight text-white">
+            O CRM feito para<br />imobiliárias que<br />
+            <span className="bg-linear-to-r from-emerald-300 to-teal-300 bg-clip-text text-transparent">
+              querem vender mais.
+            </span>
           </h2>
           <p className="mt-4 text-base leading-relaxed text-blue-200">
             Gerencie leads, propostas e empreendimentos em um só lugar — de qualquer dispositivo.
           </p>
 
           <ul className="mt-8 space-y-3">
-            {FEATURES.map((label) => (
-              <li key={label} className="flex items-center gap-3 text-sm text-blue-100">
-                <svg className="h-5 w-5 shrink-0 text-emerald-400" fill="none" stroke="currentColor"
-                  strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
+            {FEATURES.map((label, i) => (
+              <li
+                key={label}
+                className="lp-anim-fade-up flex items-center gap-3 text-sm text-blue-100"
+                style={{ animationDelay: `${0.3 + i * 0.1}s` }}
+              >
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400/20 ring-1 ring-emerald-400/30">
+                  <svg className="h-3 w-3 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </span>
                 {label}
               </li>
             ))}
           </ul>
         </div>
 
-        <p className="text-xs text-blue-300">
+        <p className="lp-anim-fade-up text-xs text-blue-400" style={{ animationDelay: '0.6s' }}>
           © {new Date().getFullYear()} ImobCRM · Todos os direitos reservados
         </p>
       </aside>
 
-      {/* ── Painel do formulário ──────────────────────────────────── */}
-      <div className="flex flex-1 flex-col items-center justify-center bg-slate-50 px-4 py-12 sm:px-8">
+      {/* ── Painel direito: formulário ── */}
+      <div className="relative flex flex-1 flex-col items-center justify-center px-4 py-12 sm:px-8">
 
         {/* Logo mobile */}
-        <div className="mb-8 flex items-center gap-2 lg:hidden" aria-hidden="true">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1B3A5C]">
+        <Link
+          href="/"
+          className="lp-anim-slide-down mb-8 flex items-center gap-2.5 lg:hidden"
+        >
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
             <span className="text-base font-bold text-white">I</span>
           </div>
-          <span className="text-xl font-semibold tracking-tight text-slate-900">ImobCRM</span>
-        </div>
+          <span className="text-xl font-semibold tracking-tight text-white">ImobCRM</span>
+        </Link>
 
-        <div className="w-full max-w-sm">
-          {/* Fix #6: px-6 no mobile, px-8 a partir de sm */}
-          <div className="rounded-2xl bg-white px-6 py-10 shadow-sm ring-1 ring-slate-200 sm:px-8">
+        {/* Card de login */}
+        <div
+          className="lp-anim-fade-up w-full max-w-sm"
+          style={{ animationDelay: '0.1s' }}
+        >
+          <div className="rounded-2xl border border-white/10 bg-slate-900/60 px-6 py-10 shadow-2xl backdrop-blur-xl sm:px-8">
 
             <div className="mb-8">
-              {/* Fix #2: único h1 real da página */}
-              <h1 className="text-2xl font-bold text-slate-900">Entrar</h1>
-              <p className="mt-1 text-sm text-slate-500">Acesse sua conta para continuar</p>
+              <h1 className="text-2xl font-bold text-white">Entrar</h1>
+              <p className="mt-1 text-sm text-blue-300">Acesse sua conta para continuar</p>
             </div>
 
             <form onSubmit={handleLogin} noValidate className="space-y-5">
 
               {/* E-mail */}
               <div className="space-y-1.5">
-                <label htmlFor="email" className="block text-sm font-medium text-slate-700">
+                <label htmlFor="email" className="block text-sm font-medium text-blue-100">
                   E-mail
                 </label>
                 <input
@@ -167,21 +204,19 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seu@email.com"
-                  // Fix #10: touch-action manipulation
-                  className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 placeholder:text-slate-400 transition-colors touch-manipulation focus:border-[#1B3A5C] focus:outline-none focus:ring-2 focus:ring-[#1B3A5C]/20"
+                  className="block w-full rounded-lg border border-white/15 bg-white/10 px-3.5 py-3 text-sm text-white placeholder:text-blue-400 transition-colors touch-manipulation focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/20"
                 />
               </div>
 
               {/* Senha */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label htmlFor="password" className="block text-sm font-medium text-slate-700">
+                  <label htmlFor="password" className="block text-sm font-medium text-blue-100">
                     Senha
                   </label>
-                  {/* Fix #1: link "Esqueceu a senha?" */}
                   <a
                     href="/forgot-password"
-                    className="text-xs font-medium text-[#1B3A5C] transition-colors hover:text-[#0f2240] focus:outline-none focus:ring-2 focus:ring-[#1B3A5C]/40 rounded"
+                    className="text-xs font-medium text-emerald-400 transition-colors hover:text-emerald-300 focus:outline-none"
                   >
                     Esqueceu a senha?
                   </a>
@@ -195,13 +230,13 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 pr-11 text-sm text-slate-900 placeholder:text-slate-400 transition-colors touch-manipulation focus:border-[#1B3A5C] focus:outline-none focus:ring-2 focus:ring-[#1B3A5C]/20"
+                    className="block w-full rounded-lg border border-white/15 bg-white/10 px-3.5 py-3 pr-11 text-sm text-white placeholder:text-blue-400 transition-colors touch-manipulation focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/20"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPwd((v) => !v)}
                     aria-label={showPwd ? 'Ocultar senha' : 'Mostrar senha'}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 transition-colors hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-[#1B3A5C]/40"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-blue-400 transition-colors hover:text-blue-200 focus:outline-none"
                   >
                     <EyeIcon open={showPwd} />
                   </button>
@@ -213,43 +248,39 @@ export default function LoginPage() {
                 <div
                   role="alert"
                   aria-live="polite"
-                  className="flex items-start gap-2 rounded-lg bg-red-50 px-3.5 py-3 text-sm text-red-700"
+                  className="flex items-start gap-2 rounded-lg border border-red-400/20 bg-red-500/10 px-3.5 py-3 text-sm text-red-300"
                 >
                   <svg className="mt-0.5 h-4 w-4 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                    <path fillRule="evenodd"
-                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                      clipRule="evenodd" />
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
                   {error}
                 </div>
               )}
 
-              {/* Botão
-                  Fix #5 + #8: cor via classe Tailwind em vez de style inline →
-                  transição suave funciona corretamente
-              */}
+              {/* Botão */}
               <button
                 type="submit"
                 disabled={loading}
-                className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white transition-colors focus:outline-none focus:ring-2 focus:ring-[#1B3A5C] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
-                  loading ? 'bg-[#2d5a8e]' : 'bg-[#1B3A5C] hover:bg-[#0f2240]'
-                }`}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading && <Spinner />}
                 {loading ? 'Entrando…' : 'Entrar'}
               </button>
             </form>
 
-            <p className="mt-6 text-center text-sm text-slate-500">
+            <p className="mt-6 text-center text-sm text-blue-300">
               Ainda não tem conta?{' '}
-              <a
-                href="/register"
-                className="font-semibold text-[#1B3A5C] transition-colors hover:text-[#0f2240]"
-              >
+              <a href="/register" className="font-semibold text-emerald-400 transition-colors hover:text-emerald-300">
                 Criar agora
               </a>
             </p>
           </div>
+
+          <p className="mt-6 text-center text-xs text-blue-400">
+            <Link href="/" className="transition-colors hover:text-blue-200">
+              ← Voltar ao início
+            </Link>
+          </p>
         </div>
       </div>
     </div>
