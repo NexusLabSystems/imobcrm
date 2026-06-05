@@ -101,10 +101,10 @@ function Navbar() {
 
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1B3A5C]">
-            <span className="text-sm font-bold text-white">I</span>
+            <span className="text-sm font-bold text-white">U</span>
           </div>
           <span className={`text-base font-semibold tracking-tight transition-colors ${scrolled ? 'text-slate-900' : 'text-white'}`}>
-            ImobCRM
+            Urbanix
           </span>
         </Link>
 
@@ -505,7 +505,7 @@ function HowItWorks() {
 // ── Depoimentos ──────────────────────────────────────────────────────────────
 
 const testimonials = [
-  { quote: 'Aumentamos nossa conversão em 40% no primeiro trimestre com o ImobCRM. O Kanban e o scoring de leads fizeram toda a diferença.', name: 'Rafaela Mendes',   role: 'Gerente Comercial · Construtora Horizonte', initials: 'RM', color: 'bg-[#1B3A5C]'    },
+  { quote: 'Aumentamos nossa conversão em 40% no primeiro trimestre com o Urbanix. O Kanban e o scoring de leads fizeram toda a diferença.', name: 'Rafaela Mendes',   role: 'Gerente Comercial · Construtora Horizonte', initials: 'RM', color: 'bg-[#1B3A5C]'    },
   { quote: 'A gestão dos empreendimentos ficou muito mais simples. O espelho digital eliminou nossas planilhas de disponibilidade de unidades.', name: 'Carlos Britto',   role: 'Diretor de Vendas · Britto Imóveis',        initials: 'CB', color: 'bg-violet-700' },
   { quote: 'Os dashboards de BI nos deram uma visibilidade que nunca tivemos antes. Agora tomamos decisões baseadas em dados reais.',             name: 'Ana Paula Vieira', role: 'CEO · Grupo Vieira',                        initials: 'AV', color: 'bg-emerald-700'},
 ]
@@ -588,8 +588,8 @@ function Footer() {
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-2">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1B3A5C]"><span className="text-sm font-bold text-white">I</span></div>
-              <span className="text-base font-semibold tracking-tight text-slate-900">ImobCRM</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1B3A5C]"><span className="text-sm font-bold text-white">U</span></div>
+              <span className="text-base font-semibold tracking-tight text-slate-900">Urbanix</span>
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-500">A plataforma de CRM feita para imobiliárias brasileiras que querem vender mais com processos mais eficientes.</p>
           </div>
@@ -605,7 +605,7 @@ function Footer() {
           ))}
         </div>
         <div className="mt-10 border-t border-slate-100 pt-6 flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
-          <p className="text-xs text-slate-400">&copy; {year} ImobCRM. Todos os direitos reservados.</p>
+          <p className="text-xs text-slate-400">&copy; {year} Urbanix. Todos os direitos reservados.</p>
           <p className="text-xs text-slate-400">Desenvolvido para imobiliárias brasileiras</p>
         </div>
       </div>

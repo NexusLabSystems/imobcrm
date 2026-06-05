@@ -157,9 +157,9 @@ export default function RegisterPage() {
       >
         <Link href="/" className="lp-anim-slide-down flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
-            <span className="text-lg font-bold text-white">I</span>
+            <span className="text-lg font-bold text-white">U</span>
           </div>
-          <span className="text-xl font-semibold tracking-tight text-white">ImobCRM</span>
+          <span className="text-xl font-semibold tracking-tight text-white">Urbanix</span>
         </Link>
 
         <div className="lp-anim-fade-up" style={{ animationDelay: '0.15s' }}>
@@ -196,7 +196,7 @@ export default function RegisterPage() {
         </div>
 
         <p className="lp-anim-fade-up text-xs text-blue-400" style={{ animationDelay: '0.6s' }}>
-          © {new Date().getFullYear()} ImobCRM · Todos os direitos reservados
+          © {new Date().getFullYear()} Urbanix · Todos os direitos reservados
         </p>
       </aside>
 
@@ -206,9 +206,9 @@ export default function RegisterPage() {
         {/* Logo mobile */}
         <Link href="/" className="lp-anim-slide-down mb-8 flex items-center gap-2.5 lg:hidden">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
-            <span className="text-base font-bold text-white">I</span>
+            <span className="text-base font-bold text-white">U</span>
           </div>
-          <span className="text-xl font-semibold tracking-tight text-white">ImobCRM</span>
+          <span className="text-xl font-semibold tracking-tight text-white">Urbanix</span>
         </Link>
 
         <div className="lp-anim-fade-up w-full max-w-sm" style={{ animationDelay: '0.1s' }}>
